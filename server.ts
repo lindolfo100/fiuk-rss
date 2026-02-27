@@ -81,18 +81,24 @@ async function startServer() {
       const feeds: { title: string; url: string; folder?: string }[] = [];
 
       const processOutline = (outline: any, folderName?: string) => {
+        if (!outline) return;
         const outlines = Array.isArray(outline) ? outline : [outline];
         
         for (const item of outlines) {
-          if (item.type === "rss") {
+          const xmlUrl = item.xmlUrl || item.xmlurl || item.XMLURL;
+          
+          // If it has an xmlUrl, it's a feed
+          if (xmlUrl) {
             feeds.push({
               title: item.text || item.title || "Unknown Feed",
-              url: item.xmlUrl,
+              url: xmlUrl,
               folder: folderName
             });
-          } else if (item.outline) {
-            // It's a folder
-            processOutline(item.outline, item.text || item.title);
+          } 
+          
+          // If it has nested outlines, it's a folder or a nested structure
+          if (item.outline) {
+            processOutline(item.outline, item.text || item.title || folderName);
           }
         }
       };
