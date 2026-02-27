@@ -1,0 +1,5 @@
+{
+  "name": "Flux Aggregator",
+  "description": "A modern, all-in-one RSS feed aggregator for news, podcasts, YouTube, and Reddit with full offline support.",
+  "requestFramePermissions": []
+}

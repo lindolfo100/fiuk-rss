@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neon-accent: #00ff9d;
+  --color-dark-bg: #0a0a0a;
+  --color-dark-surface: #141414;
+  --color-dark-border: #262626;
+}
+
+@layer base {
+  body {
+    @apply bg-dark-bg text-gray-200 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-dark-surface/80 backdrop-blur-xl border-t border-dark-border;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
