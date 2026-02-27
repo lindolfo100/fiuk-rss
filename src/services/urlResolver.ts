@@ -15,6 +15,12 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
 
     // 2. YouTube
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      // Check if it's a playlist URL
+      const playlistMatch = url.match(/[?&]list=([^&]+)/);
+      if (playlistMatch) {
+        return `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistMatch[1]}`;
+      }
+
       const response = await fetch(url, { 
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 

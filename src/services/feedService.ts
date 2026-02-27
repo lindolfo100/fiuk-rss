@@ -140,9 +140,10 @@ export function normalizeFeedItem(item: any, feedTitle: string, feedUrl: string)
  */
 export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[]> {
   const feedPromises = urls.map(async (url) => {
+    let currentUrl = url;
     try {
-      const isYouTube = url.includes('youtube.com');
-      const isReddit = url.includes('reddit.com');
+      const isYouTube = currentUrl.includes('youtube.com');
+      const isReddit = currentUrl.includes('reddit.com');
       
       const headers: Record<string, string> = {};
 
@@ -157,7 +158,7 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
         headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       }
 
-      const response = await fetch(url, {
+      let response = await fetch(currentUrl, {
         headers,
         method: 'GET',
         redirect: 'follow',
@@ -165,14 +166,34 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
       });
 
       if (!response.ok) {
-        // Fallback for YouTube: Try the playlist format if channel_id fails
-        if (isYouTube && response.status === 404 && url.includes('channel_id=')) {
-          const channelId = url.split('channel_id=')[1].split('&')[0];
-          const playlistUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=UU${channelId.substring(2)}`;
-          console.log(`YouTube 404, trying fallback: ${playlistUrl}`);
-          return fetchAllFeeds([playlistUrl]);
+        // Fallback for YouTube: Try the playlist format if channel_id fails, and vice-versa
+        if (isYouTube && response.status === 404) {
+          let fallbackUrl = null;
+          if (currentUrl.includes('channel_id=')) {
+            const channelId = currentUrl.split('channel_id=')[1].split('&')[0];
+            fallbackUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=UU${channelId.substring(2)}`;
+          } else if (currentUrl.includes('playlist_id=UU')) {
+            const playlistId = currentUrl.split('playlist_id=')[1].split('&')[0];
+            fallbackUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=UC${playlistId.substring(2)}`;
+          }
+
+          if (fallbackUrl) {
+            console.log(`YouTube 404, trying fallback: ${fallbackUrl}`);
+            response = await fetch(fallbackUrl, {
+              headers,
+              method: 'GET',
+              redirect: 'follow',
+              signal: AbortSignal.timeout(15000)
+            });
+            if (response.ok) {
+              currentUrl = fallbackUrl;
+            }
+          }
         }
-        throw new Error(`Status code ${response.status} for ${url}`);
+        
+        if (!response.ok) {
+          throw new Error(`Status code ${response.status} for ${currentUrl}`);
+        }
       }
 
       const xml = await response.text();
@@ -189,12 +210,12 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
             return fetchAllFeeds([discoveredUrl]);
           }
         }
-        throw new Error(`Received HTML instead of XML for ${url}`);
+        throw new Error(`Received HTML instead of XML for ${currentUrl}`);
       }
 
       const feed = await parser.parseString(xml);
       
-      return feed.items.map(item => normalizeFeedItem(item, feed.title || 'Unknown Source', url));
+      return feed.items.map(item => normalizeFeedItem(item, feed.title || 'Unknown Source', currentUrl));
     } catch (error) {
       console.error(`Error fetching feed from ${url}:`, error);
       return []; 
