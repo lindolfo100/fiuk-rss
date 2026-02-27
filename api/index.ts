@@ -7,12 +7,13 @@ import { fetchAllFeeds } from "../src/services/feedService.js";
 import { resolveUrlToRss } from "../src/services/urlResolver.js";
 
 const app = express();
+const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.json());
 
 // API Routes
-app.post("/api/feeds", async (req, res) => {
+router.post("/feeds", async (req, res) => {
   try {
     const { urls } = req.body;
     if (!urls || !Array.isArray(urls)) {
@@ -27,11 +28,11 @@ app.post("/api/feeds", async (req, res) => {
   }
 });
 
-app.get("/api/health", (req, res) => {
+router.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/api/readability", async (req, res) => {
+router.get("/readability", async (req, res) => {
   const { url } = req.query;
   if (!url || typeof url !== "string") {
     return res.status(400).json({ error: "URL is required" });
@@ -41,7 +42,8 @@ app.get("/api/readability", async (req, res) => {
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      }
+      },
+      signal: AbortSignal.timeout(8000)
     });
 
     if (!response.ok) {
@@ -64,7 +66,7 @@ app.get("/api/readability", async (req, res) => {
   }
 });
 
-app.post("/api/opml/import", upload.single("file"), async (req, res) => {
+router.post("/opml/import", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
@@ -110,7 +112,7 @@ app.post("/api/opml/import", upload.single("file"), async (req, res) => {
   }
 });
 
-app.post("/api/resolve-url", async (req, res) => {
+router.post("/resolve-url", async (req, res) => {
   const { url } = req.body;
   if (!url) {
     return res.status(400).json({ error: "URL is required" });
@@ -128,5 +130,9 @@ app.post("/api/resolve-url", async (req, res) => {
     res.status(500).json({ error: "Failed to resolve URL" });
   }
 });
+
+// Mount router at both / and /api to handle Vercel's potential URL rewriting
+app.use("/api", router);
+app.use("/", router);
 
 export default app;

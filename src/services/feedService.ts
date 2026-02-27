@@ -162,7 +162,7 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
         headers,
         method: 'GET',
         redirect: 'follow',
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(8000)
       });
 
       if (!response.ok) {
@@ -183,7 +183,7 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
               headers,
               method: 'GET',
               redirect: 'follow',
-              signal: AbortSignal.timeout(15000)
+              signal: AbortSignal.timeout(8000)
             });
             if (response.ok) {
               currentUrl = fallbackUrl;

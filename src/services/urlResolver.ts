@@ -24,7 +24,8 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
       const response = await fetch(url, { 
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
-        } 
+        },
+        signal: AbortSignal.timeout(8000)
       });
       const html = await response.text();
       
@@ -53,14 +54,17 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
       const response = await fetch(url, {
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
-        }
+        },
+        signal: AbortSignal.timeout(8000)
       });
       const html = await response.text();
       const dom = new JSDOM(html);
       const title = dom.window.document.querySelector('title')?.textContent?.split('|')[0].trim();
       
       if (title) {
-        const itunesResponse = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=podcast`);
+        const itunesResponse = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=podcast`, {
+          signal: AbortSignal.timeout(8000)
+        });
         const itunesData = await itunesResponse.json();
         if (itunesData.results && itunesData.results.length > 0) {
           return itunesData.results[0].feedUrl;
@@ -70,7 +74,8 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
 
     // 4. Standard Blogs/Websites (Auto-discovery)
     const response = await fetch(url, { 
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } 
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      signal: AbortSignal.timeout(8000)
     });
     
     if (response.ok) {

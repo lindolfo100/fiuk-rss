@@ -39,7 +39,7 @@ import { transformToRssUrl } from './utils/rss';
 const DEFAULT_FEEDS = [
   'https://www.theverge.com/rss/index.xml',
   'https://techcrunch.com/feed/',
-  'https://www.youtube.com/feeds/videos.xml?playlist_id=UUBJycsmduvYELg8GaZ5XC2g', // MKBHD Uploads
+  'https://www.youtube.com/feeds/videos.xml?channel_id=UCBJycsmduvYELg8GaZ5XC2g', // MKBHD Uploads
   'https://www.reddit.com/r/technology/.rss',
   'https://lexfridman.com/feed/podcast/',
 ];
@@ -345,7 +345,10 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ urls: userFeedUrls }),
       });
-      if (!response.ok) throw new Error('Failed to fetch feeds');
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch feeds: ${response.status} ${response.statusText} ${text}`);
+      }
       const data = await response.json();
       setFeeds(data);
       if (data.length > 0 && !selectedItem) {
@@ -385,6 +388,8 @@ export default function App() {
         const data = await response.json();
         rssUrl = data.resolvedUrl;
       } else {
+        const text = await response.text().catch(() => '');
+        console.error(`Failed to resolve URL: ${response.status} ${response.statusText} ${text}`);
         // Fallback to client-side basic transformation if backend fails
         rssUrl = transformToRssUrl(newFeedUrl);
       }
