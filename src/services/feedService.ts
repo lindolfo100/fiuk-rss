@@ -199,16 +199,17 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
       const xml = await response.text();
       const trimmedXml = xml.trim();
       
-      // If the response is HTML (common for YouTube handles), try to find the RSS link
+      // If the response is HTML, try to find the RSS link
       if (trimmedXml.toLowerCase().startsWith('<!doctype html') || trimmedXml.toLowerCase().startsWith('<html')) {
-        if (isYouTube) {
-          const dom = new JSDOM(xml);
-          const rssLink = dom.window.document.querySelector('link[type="application/rss+xml"]');
-          if (rssLink && rssLink.getAttribute('href')) {
-            const discoveredUrl = rssLink.getAttribute('href')!;
-            console.log(`Discovered YouTube RSS URL: ${discoveredUrl}`);
-            return fetchAllFeeds([discoveredUrl]);
+        const dom = new JSDOM(xml);
+        const rssLink = dom.window.document.querySelector('link[type="application/rss+xml"]') || dom.window.document.querySelector('link[type="application/atom+xml"]');
+        if (rssLink && rssLink.getAttribute('href')) {
+          let discoveredUrl = rssLink.getAttribute('href')!;
+          if (!discoveredUrl.startsWith('http')) {
+            discoveredUrl = new URL(discoveredUrl, currentUrl).toString();
           }
+          console.log(`Discovered RSS URL: ${discoveredUrl} for ${currentUrl}`);
+          return fetchAllFeeds([discoveredUrl]);
         }
         throw new Error(`Received HTML instead of XML for ${currentUrl}`);
       }
@@ -216,8 +217,15 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
       const feed = await parser.parseString(xml);
       
       return feed.items.map(item => normalizeFeedItem(item, feed.title || 'Unknown Source', currentUrl));
-    } catch (error) {
-      console.error(`Error fetching feed from ${url}:`, error);
+    } catch (error: any) {
+      const errorCode = error.cause?.code || error.code;
+      if (errorCode === 'ENOTFOUND' || errorCode === 'EAI_AGAIN' || errorCode === 'ECONNREFUSED') {
+        console.warn(`Feed unavailable (DNS/Network error): ${url}`);
+      } else if (error.message?.includes('Received HTML instead of XML')) {
+        console.warn(`Feed unavailable (Returned HTML): ${url}`);
+      } else {
+        console.error(`Error fetching feed from ${url}:`, error.message || error);
+      }
       return []; 
     }
   });

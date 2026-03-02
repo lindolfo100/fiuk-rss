@@ -102,8 +102,13 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
     }
 
     return null;
-  } catch (error) {
-    console.error(`Error resolving URL ${url}:`, error);
+  } catch (error: any) {
+    const errorCode = error.cause?.code || error.code;
+    if (errorCode === 'ENOTFOUND' || errorCode === 'EAI_AGAIN' || errorCode === 'ECONNREFUSED') {
+      console.warn(`Could not resolve URL (DNS/Network error): ${url}`);
+    } else {
+      console.error(`Error resolving URL ${url}:`, error.message || error);
+    }
     return null;
   }
 }
