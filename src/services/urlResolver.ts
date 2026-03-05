@@ -27,6 +27,11 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
         },
         signal: AbortSignal.timeout(8000)
       });
+
+      if (!response.ok) {
+        return null;
+      }
+
       const html = await response.text();
       
       // Try to find channel ID in meta tags
@@ -57,6 +62,11 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
         },
         signal: AbortSignal.timeout(8000)
       });
+
+      if (!response.ok) {
+        return null;
+      }
+
       const html = await response.text();
       const dom = new JSDOM(html);
       const title = dom.window.document.querySelector('title')?.textContent?.split('|')[0].trim();
@@ -89,8 +99,7 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
       if (rssLink) {
         let href = rssLink.getAttribute('href');
         if (href && !href.startsWith('http')) {
-          const baseUrl = new URL(url);
-          href = new URL(href, baseUrl.origin).href;
+          href = new URL(href, url).href;
         }
         return href;
       }
