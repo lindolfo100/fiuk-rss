@@ -1,5 +1,21 @@
 import { JSDOM } from 'jsdom';
 
+const REQUEST_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Resolves a standard URL (YouTube, Spotify, Reddit, or Blog) to its raw RSS/XML feed URL.
  */
@@ -21,12 +37,16 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
         return `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistMatch[1]}`;
       }
 
-      const response = await fetch(url, { 
+      const response = await fetchWithTimeout(url, { 
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
-        },
-        signal: AbortSignal.timeout(8000)
+        }
       });
+
+      if (!response.ok) {
+        return null;
+      }
+
       const html = await response.text();
       
       // Try to find channel ID in meta tags
@@ -51,20 +71,22 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
 
     // 3. Spotify Podcasts
     if (url.includes('open.spotify.com/show/')) {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         headers: { 
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
-        },
-        signal: AbortSignal.timeout(8000)
+        }
       });
+
+      if (!response.ok) {
+        return null;
+      }
+
       const html = await response.text();
       const dom = new JSDOM(html);
       const title = dom.window.document.querySelector('title')?.textContent?.split('|')[0].trim();
       
       if (title) {
-        const itunesResponse = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=podcast`, {
-          signal: AbortSignal.timeout(8000)
-        });
+        const itunesResponse = await fetchWithTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=podcast`);
         const itunesData = await itunesResponse.json();
         if (itunesData.results && itunesData.results.length > 0) {
           return itunesData.results[0].feedUrl;
@@ -73,9 +95,8 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
     }
 
     // 4. Standard Blogs/Websites (Auto-discovery)
-    const response = await fetch(url, { 
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-      signal: AbortSignal.timeout(8000)
+    const response = await fetchWithTimeout(url, { 
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
     });
     
     if (response.ok) {
@@ -89,8 +110,7 @@ export async function resolveUrlToRss(inputUrl: string): Promise<string | null> 
       if (rssLink) {
         let href = rssLink.getAttribute('href');
         if (href && !href.startsWith('http')) {
-          const baseUrl = new URL(url);
-          href = new URL(href, baseUrl.origin).href;
+          href = new URL(href, url).href;
         }
         return href;
       }

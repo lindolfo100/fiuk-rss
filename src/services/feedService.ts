@@ -41,6 +41,22 @@ const parser = new Parser({
   },
 });
 
+const FEED_FETCH_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = FEED_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Extracts the first image URL from an HTML string
  */
@@ -158,11 +174,10 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
         headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       }
 
-      let response = await fetch(currentUrl, {
+      let response = await fetchWithTimeout(currentUrl, {
         headers,
         method: 'GET',
         redirect: 'follow',
-        signal: AbortSignal.timeout(8000)
       });
 
       if (!response.ok) {
@@ -179,11 +194,10 @@ export async function fetchAllFeeds(urls: string[]): Promise<NormalizedFeedItem[
 
           if (fallbackUrl) {
             console.log(`YouTube 404, trying fallback: ${fallbackUrl}`);
-            response = await fetch(fallbackUrl, {
+            response = await fetchWithTimeout(fallbackUrl, {
               headers,
               method: 'GET',
               redirect: 'follow',
-              signal: AbortSignal.timeout(8000)
             });
             if (response.ok) {
               currentUrl = fallbackUrl;
